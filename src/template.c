@@ -488,7 +488,7 @@ static void template_parse_set (parser_t *p) {
 		if (names == NULL) {
 				template_parse_error(p, "missing attribute 'names'");
 		}
-        node->set_names = template_parse_names(p, (char *)names);
+		node->set_names = template_parse_names(p, (char *)names);
 		expressions = table_get(p->attrs, "expressions");
 		if (expressions == NULL) {
 				template_parse_error(p, "missing attribute 'expressions'");
