@@ -101,15 +101,15 @@ struct node_s {
 };
 
 struct block_s {
-	node_type_e    type;       /* block type (NT_IF, NT_FOR_NEXT) */
+	node_type_e     type;       /* block type (NT_IF, NT_FOR_NEXT) */
 	union {
 		struct {
-			off_t  if_start;   /* first if condition node index */
-			off_t  if_last;    /* trailing if condition node index; -1 if 'else' was found */
-			off_t  if_count;   /* number of 'elseif' and 'else' elements */
+			off_t   if_start;   /* first if condition node index */
+			off_t   if_last;    /* trailing if condition node index; -1 if 'else' was found */
+			size_t  if_count;   /* number of 'elseif' and 'else' elements */
 		};
 		struct {
-			off_t  for_start;  /* for-next node index */
+			off_t   for_start;  /* for-next node index */
 		};
 	};
 };
@@ -123,11 +123,11 @@ struct memstream_s {
 
 /* parsing */
 static void template_unescape_xml(char *str);
-static int template_parse_flags(parser_t *p, const char *flags);
-static int template_parse_error(parser_t *p, const char *msg);
-static int template_parse_oom(parser_t *p);
+static int template_error(parser_t *p, const char *msg);
+static int template_oom(parser_t *p);
 static node_t *template_append_node(parser_t *p);
 static block_t *template_append_block(parser_t *p);
+static int template_parse_flags(parser_t *p, const char *flags);
 static list_t *template_parse_names(parser_t *p, char *names);
 static int template_parse_expression(parser_t *p, const char *exp);
 static void template_parse_if(parser_t *p);
@@ -198,46 +198,7 @@ static void template_unescape_xml (char *str) {
 	*w = '\0';
 }
 
-static int template_parse_flags (parser_t *p, const char *flags) {
-	int          value;
-	const char  *f;
-
-	value = 0;
-	for (f = flags; *f != '\0'; f++) {
-		switch (*f) {
-		case 'x':
-			if (value & TEMPLATE_FESC) {
-				template_parse_error(p, "bad flags: multiple escacpes");
-			}
-			value |= TEMPLATE_FESCXML;
-			break;
-
-		case 'u':
-			if (value & TEMPLATE_FESC) {
-				template_parse_error(p, "bad flags: multiple escacpes");
-			}
-			value |= TEMPLATE_FESCURL;
-			break;
-
-		case 'j':
-			if (value & TEMPLATE_FESC) {
-				template_parse_error(p, "bad flags: multiple escacpes");
-			}
-			value |= TEMPLATE_FESCJS;
-			break;
-
-		case 'n':
-			value |= TEMPLATE_FSUPNIL;
-			break;
-
-		default:
-			template_parse_error(p, "bad flags: unknown character");
-		}
-	}
-	return value;
-}
-
-static int template_parse_error (parser_t *p, const char *msg) {
+static int template_error (parser_t *p, const char *msg) {
 	int    line;
 	char  *pos;
 
@@ -265,8 +226,8 @@ static int template_parse_error (parser_t *p, const char *msg) {
 	return luaL_error(p->L, "%s:%d: %s", p->filename, line, msg);
 }
 
-static int template_parse_oom (parser_t *p) {
-	return template_parse_error(p, "out of memory");
+static int template_oom (parser_t *p) {
+	return template_error(p, "out of memory");
 }
 
 static node_t *template_append_node (parser_t *p) {
@@ -274,7 +235,7 @@ static node_t *template_append_node (parser_t *p) {
 
 	node = list_append(p->nodes);
 	if (!node) {
-		template_parse_oom(p);
+		template_oom(p);
 	}
 	return node;
 }
@@ -284,9 +245,48 @@ static block_t *template_append_block (parser_t *p) {
 
 	block = list_append(p->blocks);
 	if (!block) {
-		template_parse_oom(p);
+		template_oom(p);
 	}
 	return block;
+}
+
+static int template_parse_flags (parser_t *p, const char *flags) {
+	int          value;
+	const char  *f;
+
+	value = 0;
+	for (f = flags; *f != '\0'; f++) {
+		switch (*f) {
+		case 'x':
+			if (value & TEMPLATE_FESC) {
+				template_error(p, "bad flags: multiple escacpes");
+			}
+			value |= TEMPLATE_FESCXML;
+			break;
+
+		case 'u':
+			if (value & TEMPLATE_FESC) {
+				template_error(p, "bad flags: multiple escacpes");
+			}
+			value |= TEMPLATE_FESCURL;
+			break;
+
+		case 'j':
+			if (value & TEMPLATE_FESC) {
+				template_error(p, "bad flags: multiple escacpes");
+			}
+			value |= TEMPLATE_FESCJS;
+			break;
+
+		case 'n':
+			value |= TEMPLATE_FSUPNIL;
+			break;
+
+		default:
+			template_error(p, "bad flags: unknown character");
+		}
+	}
+	return value;
 }
 
 static list_t *template_parse_names (parser_t *p, char *names) {
@@ -295,7 +295,7 @@ static list_t *template_parse_names (parser_t *p, char *names) {
 
 	l = list_create(sizeof(char *), 2);
 	if (!l) {
-		template_parse_oom(p);
+		template_oom(p);
 	}
 	state = NULL;
 	name = strtok_r(names, "\t ,", &state);
@@ -303,14 +303,14 @@ static list_t *template_parse_names (parser_t *p, char *names) {
 		entry = list_append(l);
 		if (!entry) {
 			list_free(l);
-			template_parse_oom(p);
+			template_oom(p);
 		}
 		*entry = name;
 		name = strtok_r(NULL, "\t ,", &state);		
 	}
 	if (l->count == 0) {
 		list_free(l);
-		template_parse_error(p, "empty 'names'");
+		template_error(p, "empty 'names'");
 	}
 	return l;
 }
@@ -327,7 +327,7 @@ static int template_parse_expression (parser_t *p, const char *exp) {
 	} else {
 		chunk = malloc(sizeof("return ") - 1 + len);
 		if (!chunk) {
-			return template_parse_oom(p);
+			return template_oom(p);
 		}
 	}
 	memcpy(chunk, "return ", sizeof("return ") - 1);
@@ -336,7 +336,7 @@ static int template_parse_expression (parser_t *p, const char *exp) {
 		if (!on_stack) {
 			free(chunk);
 		}
-		return template_parse_error(p, lua_tostring(p->L, -1));
+		return template_error(p, lua_tostring(p->L, -1));
 	}
 	if (!on_stack) {
 		free(chunk);
@@ -360,7 +360,7 @@ static void template_parse_if (parser_t *p) {
 		node->if_ref = LUA_NOREF;
 		cond = table_get(p->attrs, "cond");
 		if (cond == NULL) {
-			template_parse_error(p, "missing attribute 'cond'");
+			template_error(p, "missing attribute 'cond'");
 		}
 		node->if_ref = template_parse_expression(p, cond);
 		node->if_next = -1;
@@ -368,7 +368,7 @@ static void template_parse_if (parser_t *p) {
 	if ((p->element & TEMPLATE_ECLOSE) != 0) {
 		block = list_pop(p->blocks);
 		if (block == NULL || block->type != NT_IF) {
-			template_parse_error(p, "no 'if' to close");
+			template_error(p, "no 'if' to close");
 		}
 		if (block->if_last != -1) {
 			node = list_get(p->nodes, block->if_last);
@@ -390,11 +390,11 @@ static void template_parse_elseif (parser_t *p) {
 
 	if ((p->element & TEMPLATE_EOPEN) != 0) {
 		if (p->blocks->count == 0) {
-			template_parse_error(p, "no 'if' to continue");
+			template_error(p, "no 'if' to continue");
 		}
 		block = list_get(p->blocks, p->blocks->count - 1);
 		if (block->type != NT_IF || block->if_last == -1) {
-			template_parse_error(p, "no 'if' to continue");
+			template_error(p, "no 'if' to continue");
 		}
 		node = template_append_node(p);
 		node->type = NT_JUMP;
@@ -408,7 +408,7 @@ static void template_parse_elseif (parser_t *p) {
 		node->if_ref = LUA_NOREF;
 		cond = table_get(p->attrs, "cond");
 		if (cond == NULL) {
-			template_parse_error(p, "missing attribute 'cond'");
+			template_error(p, "missing attribute 'cond'");
 		}
 		node->if_ref = template_parse_expression(p, cond);
 		node->if_next = -1;
@@ -421,11 +421,11 @@ static void template_parse_else (parser_t *p) {
 
 	if ((p->element & TEMPLATE_EOPEN) != 0) {
 		if (p->blocks->count == 0) {
-			template_parse_error(p, "no 'if' to continue");
+			template_error(p, "no 'if' to continue");
 		}
 		block = list_get(p->blocks, p->blocks->count - 1);
 		if (block->type != NT_IF || block->if_last == -1) {
-			template_parse_error(p, "no 'if' to continue");
+			template_error(p, "no 'if' to continue");
 		}
 		node = template_append_node(p);
 		node->type = NT_JUMP;
@@ -448,7 +448,7 @@ static void template_parse_for (parser_t *p) {
 		node->for_init_ref = LUA_NOREF;
 		in = table_get(p->attrs, "in");
 		if (in == NULL) {
-			template_parse_error(p, "missing attribute 'in'");
+			template_error(p, "missing attribute 'in'");
 		}
 		node->for_init_ref = template_parse_expression(p, in);
 		block = template_append_block(p);
@@ -458,7 +458,7 @@ static void template_parse_for (parser_t *p) {
 		node->type = NT_FOR_NEXT;
 		names = table_get(p->attrs, "names");
 		if (names == NULL) {
-			template_parse_error(p, "missing attribute 'names'");
+			template_error(p, "missing attribute 'names'");
 		}
 		node->for_next_names = template_parse_names(p, (char *)names);
 		node->for_next_next = -1;
@@ -466,7 +466,7 @@ static void template_parse_for (parser_t *p) {
 	if ((p->element & TEMPLATE_ECLOSE) != 0) {
 		block = list_pop(p->blocks);
 		if (block == NULL || block->type != NT_FOR_NEXT) {
-				template_parse_error(p, "no 'for' to close");
+				template_error(p, "no 'for' to close");
 		}
 		node = template_append_node(p);
 		node->type = NT_JUMP;
@@ -486,12 +486,12 @@ static void template_parse_set (parser_t *p) {
 		node->set_ref = LUA_NOREF;
 		names = table_get(p->attrs, "names");
 		if (names == NULL) {
-				template_parse_error(p, "missing attribute 'names'");
+				template_error(p, "missing attribute 'names'");
 		}
 		node->set_names = template_parse_names(p, (char *)names);
 		expressions = table_get(p->attrs, "expressions");
 		if (expressions == NULL) {
-				template_parse_error(p, "missing attribute 'expressions'");
+				template_error(p, "missing attribute 'expressions'");
 		}
 		node->set_ref = template_parse_expression(p, expressions);
 	}
@@ -507,7 +507,7 @@ static void template_parse_include (parser_t *p) {
 		node->include_ref = LUA_NOREF;
 		filename = table_get(p->attrs, "filename");
 		if (filename == NULL) {
-			template_parse_error(p, "missing attribute 'filename'");
+			template_error(p, "missing attribute 'filename'");
 		}
 		node->include_ref = template_parse_expression(p, filename);
 	}
@@ -539,21 +539,21 @@ static void template_parse_element (parser_t *p) {
 			p->pos++;
 		}
 		if (p->pos == key) {
-			template_parse_error(p, "attribute name expected");
+			template_error(p, "attribute name expected");
 		}
 		key_end = p->pos;
 		while (isspace(*p->pos)) {
 			p->pos++;
 		}
 		if (*p->pos != '=') {
-			template_parse_error(p, "'=' expected");
+			template_error(p, "'=' expected");
 		}
 		p->pos++;
 		while (isspace(*p->pos)) {
 			p->pos++;
 		}
 		if (*p->pos != '"') {
-			template_parse_error(p, "'\"' expected");
+			template_error(p, "'\"' expected");
 		}
 		p->pos++;
 		val = p->pos;
@@ -562,7 +562,7 @@ static void template_parse_element (parser_t *p) {
 		}
 		val_end = p->pos;
 		if (*p->pos != '"') {
-			template_parse_error(p, "'\"' expected");
+			template_error(p, "'\"' expected");
 		}
 		p->pos++;
 		*key_end = '\0';
@@ -579,7 +579,7 @@ static void template_parse_element (parser_t *p) {
 		p->pos++;
 	}
 	if (*p->pos != '>') {
-		template_parse_error(p, "'>' expected");
+		template_error(p, "'>' expected");
 	}
 	p->pos++;
 	switch (element_end - element) {
@@ -587,7 +587,7 @@ static void template_parse_element (parser_t *p) {
 		if (strncmp(element, "if", 2) == 0) {
 			template_parse_if(p);
 		} else {
-			template_parse_error(p, "bad element");
+			template_error(p, "bad element");
 		}
 		break;
 
@@ -597,7 +597,7 @@ static void template_parse_element (parser_t *p) {
 		} else if (strncmp(element, "set", 3) == 0) {
 			template_parse_set(p);
 		} else {
-			template_parse_error(p, "bad element");
+			template_error(p, "bad element");
 		}
 		break;
 
@@ -605,7 +605,7 @@ static void template_parse_element (parser_t *p) {
 		if (strncmp(element, "else", 4) == 0) {
 			template_parse_else(p);
 		} else {
-			template_parse_error(p, "bad element");
+			template_error(p, "bad element");
 		}
 		break;
 
@@ -613,7 +613,7 @@ static void template_parse_element (parser_t *p) {
 		if (strncmp(element, "elseif", 6) == 0) {
 			template_parse_elseif(p);
 		} else {
-			template_parse_error(p, "bad element");
+			template_error(p, "bad element");
 		}
 		break;
 
@@ -621,12 +621,12 @@ static void template_parse_element (parser_t *p) {
 		if (strncmp(element, "include", 7) == 0) {
 			template_parse_include(p);
 		} else {
-			template_parse_error(p, "bad element");
+			template_error(p, "bad element");
 		}
 		break;
 
 	default:
-		template_parse_error(p, "bad element");
+		template_error(p, "bad element");
 	}
 }	
 
@@ -648,7 +648,7 @@ static void template_parse_sub (parser_t *p) {
 			p->pos++;
 		}
 		if (*p->pos != ']') {
-			template_parse_error(p, "']' expected");
+			template_error(p, "']' expected");
 		}
 		*p->pos = '\0';
 		node->sub_flags = template_parse_flags(p, flags);
@@ -659,7 +659,7 @@ static void template_parse_sub (parser_t *p) {
 
 	/* expression */
 	if (*p->pos != '{') {
-		template_parse_error(p, "'{' expected");
+		template_error(p, "'{' expected");
 	}
 	braces = 1;
 	quot = 0;
@@ -722,7 +722,7 @@ static void template_parse_sub (parser_t *p) {
 		p->pos++;
 	}
 	if (braces > 0) {
-		template_parse_error(p, "'}' expected");
+		template_error(p, "'}' expected");
 	}
 	*(p->pos - 1) = '\0';
 	template_unescape_xml(expression);
@@ -1301,9 +1301,9 @@ static int template_clear (lua_State *L) {
 
 int luaopen_template (lua_State *L) {
 	static luaL_Reg template_lua_functions[] = {
+		{"render", template_render},
 		{"getresolver", template_getresolver},
 		{"setresolver", template_setresolver},
-		{"render", template_render},
 		{"clear", template_clear},
 		{NULL, NULL}
 	};
