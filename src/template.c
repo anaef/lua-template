@@ -203,15 +203,16 @@ static void template_unescape_xml (char *str) {
 
 static int template_error (parser_t *p, const char *msg) {
 	int    line;
-	char  *pos;
+	char  *pos, *linestart;
 
-	pos = p->str;
+	pos = linestart = p->str;
 	line = 1;
 	while (pos < p->pos) {
 		switch (*pos) {
 		case '\n':
 			line++;
 			pos++;
+			linestart = pos;
 			break;
 
 		case '\r':
@@ -220,13 +221,15 @@ static int template_error (parser_t *p, const char *msg) {
 			if (*pos == '\n') {
 				pos++;
 			}
+			linestart = pos;
 			break;
 
 		default:
 			pos++;
 		}
 	}
-	return luaL_error(p->L, "%s:%d: %s", p->filename, line, msg);
+	return luaL_error(p->L, "%s:%d:%d: %s", p->filename, line,
+			(int)(uintptr_t)(pos - linestart) + 1, msg);
 }
 
 static int template_oom (parser_t *p) {
@@ -625,7 +628,9 @@ static void template_parse_element (parser_t *p) {
 		}
 		break;
 	}
-	template_error(p, "bad element");
+	*element_end = '\0';
+	lua_pushfstring(p->L, "bad element: %s", element);
+	template_error(p, lua_tostring(p->L, -1));
 }	
 
 static void template_parse_sub (parser_t *p) {
