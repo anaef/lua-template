@@ -394,53 +394,55 @@ static void template_parse_elseif (parser_t *p) {
 	node_t   *node;
 	block_t  *block;
 
-	if ((p->element & TEMPLATE_EOPEN) != 0) {
-		if (p->blocks->count == 0) {
-			template_error(p, "no 'if' to continue");
-		}
-		block = list_get(p->blocks, p->blocks->count - 1);
-		if (block->type != NT_IF || block->if_last == -1) {
-			template_error(p, "no 'if' to continue");
-		}
-		node = template_append_node(p);
-		node->type = NT_JUMP;
-		node->jump_next = -1;
-		block->if_count++;
-		node = list_get(p->nodes, block->if_last);
-		node->if_next = p->nodes->count;
-		block->if_last = p->nodes->count;
-		node = template_append_node(p);
-		node->type = NT_IF;
-		node->if_ref = LUA_NOREF;
-		cond = table_get(p->attrs, "cond");
-		if (cond == NULL) {
-			template_error(p, "missing attribute 'cond'");
-		}
-		node->if_ref = template_parse_expression(p, cond);
-		node->if_next = -1;
+	if (p->element != (TEMPLATE_EOPEN | TEMPLATE_ECLOSE)) {
+		template_error(p, "'elseif' must be self-closing");
 	}
+	if (p->blocks->count == 0) {
+		template_error(p, "no 'if' to continue");
+	}
+	block = list_get(p->blocks, p->blocks->count - 1);
+	if (block->type != NT_IF || block->if_last == -1) {
+		template_error(p, "no 'if' to continue");
+	}
+	node = template_append_node(p);
+	node->type = NT_JUMP;
+	node->jump_next = -1;
+	block->if_count++;
+	node = list_get(p->nodes, block->if_last);
+	node->if_next = p->nodes->count;
+	block->if_last = p->nodes->count;
+	node = template_append_node(p);
+	node->type = NT_IF;
+	node->if_ref = LUA_NOREF;
+	cond = table_get(p->attrs, "cond");
+	if (cond == NULL) {
+		template_error(p, "missing attribute 'cond'");
+	}
+	node->if_ref = template_parse_expression(p, cond);
+	node->if_next = -1;
 }
 
 static void template_parse_else (parser_t *p) {
  	node_t   *node;
 	block_t  *block;
 
-	if ((p->element & TEMPLATE_EOPEN) != 0) {
-		if (p->blocks->count == 0) {
-			template_error(p, "no 'if' to continue");
-		}
-		block = list_get(p->blocks, p->blocks->count - 1);
-		if (block->type != NT_IF || block->if_last == -1) {
-			template_error(p, "no 'if' to continue");
-		}
-		node = template_append_node(p);
-		node->type = NT_JUMP;
-		node->jump_next = -1;
-		block->if_count++;
-		node = list_get(p->nodes, block->if_last);
-		node->if_next = p->nodes->count;
-		block->if_last = -1;
+	if (p->element != (TEMPLATE_EOPEN | TEMPLATE_ECLOSE)) {
+		template_error(p, "'else' must be self-closing");
 	}
+	if (p->blocks->count == 0) {
+		template_error(p, "no 'if' to continue");
+	}
+	block = list_get(p->blocks, p->blocks->count - 1);
+	if (block->type != NT_IF || block->if_last == -1) {
+		template_error(p, "no 'if' to continue");
+	}
+	node = template_append_node(p);
+	node->type = NT_JUMP;
+	node->jump_next = -1;
+	block->if_count++;
+	node = list_get(p->nodes, block->if_last);
+	node->if_next = p->nodes->count;
+	block->if_last = -1;
 } 
 
 static void template_parse_for (parser_t *p) {
@@ -486,37 +488,39 @@ static void template_parse_set (parser_t *p) {
 	char    *names, *expressions;
 	node_t  *node;
 
-	if ((p->element & TEMPLATE_EOPEN) != 0) {
-		node = template_append_node(p);
-		node->type = NT_SET;
-		node->set_ref = LUA_NOREF;
-		names = table_get(p->attrs, "names");
-		if (names == NULL) {
-				template_error(p, "missing attribute 'names'");
-		}
-		node->set_names = template_parse_names(p, (char *)names);
-		expressions = table_get(p->attrs, "expressions");
-		if (expressions == NULL) {
-				template_error(p, "missing attribute 'expressions'");
-		}
-		node->set_ref = template_parse_expression(p, expressions);
+	if (p->element != (TEMPLATE_EOPEN | TEMPLATE_ECLOSE)) {
+		template_error(p, "'set' must be self-closing");
 	}
+	node = template_append_node(p);
+	node->type = NT_SET;
+	node->set_ref = LUA_NOREF;
+	names = table_get(p->attrs, "names");
+	if (names == NULL) {
+			template_error(p, "missing attribute 'names'");
+	}
+	node->set_names = template_parse_names(p, (char *)names);
+	expressions = table_get(p->attrs, "expressions");
+	if (expressions == NULL) {
+			template_error(p, "missing attribute 'expressions'");
+	}
+	node->set_ref = template_parse_expression(p, expressions);
 }
 
 static void template_parse_include (parser_t *p) {
 	char    *filename;
 	node_t  *node;
 
-	if ((p->element & TEMPLATE_EOPEN) != 0) {
-		node = template_append_node(p);
-		node->type = NT_INCLUDE;
-		node->include_ref = LUA_NOREF;
-		filename = table_get(p->attrs, "filename");
-		if (filename == NULL) {
-			template_error(p, "missing attribute 'filename'");
-		}
-		node->include_ref = template_parse_expression(p, filename);
+	if (p->element != (TEMPLATE_EOPEN | TEMPLATE_ECLOSE)) {
+		template_error(p, "'include' must be self-closing");
 	}
+	node = template_append_node(p);
+	node->type = NT_INCLUDE;
+	node->include_ref = LUA_NOREF;
+	filename = table_get(p->attrs, "filename");
+	if (filename == NULL) {
+		template_error(p, "missing attribute 'filename'");
+	}
+	node->include_ref = template_parse_expression(p, filename);
 }
 
 static void template_parse_element (parser_t *p) {
