@@ -174,7 +174,7 @@ static void template_unescape_xml (char *str) {
 
 	r = str;
 	w = str;
-	do {
+	while (*r != '\0') {
 		if (*r == '&') {
 			if (r[1] == 'q' && r[2] == 'u' && r[3] == 'o' && r[4] == 't' && r[5] == ';') {
 				*w++ = '"';
@@ -194,7 +194,7 @@ static void template_unescape_xml (char *str) {
 		} else {
 			*w++ = *r++;
 		}
-	} while (*r != '\0');
+	}
 	*w = '\0';
 }
 
