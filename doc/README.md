@@ -49,7 +49,7 @@ Example: `<l:include filename="path .. '/subtemplate.html'"/>`
 
 ### Substitution
 
-Syntax: `$[flags]{exp}`
+Syntax: `$[flags]{exp}`, `${exp}`
 
 The `$` operator supports the substitution of expressions. The expression *exp* must result in a
 string value following Lua semantics. If the expression does not result in a string value, it is
@@ -77,19 +77,19 @@ string.
 
 ### `template.getresolver ()`
 
-Returns the configured resolver function, or `nil` if none is set. Please see below for more
+Returns the custom resolver function, or `nil` if none is set. Please see below for more
 information on resolver functions.
 
 
 ### `template.setresolver (func)`
 
-Sets `func` as the resolver function. When the content of a template must be resolved, the
+Sets `func` as the custom resolver function. When the content of a template must be resolved, the
 function is called with the file name of the template as the sole argument. The function must
-return the content of the template as a string value, or `nil` if the template is not present.
+return the content of the template as a string value, or `nil` if the template cannot be resolved.
 
-By default, no resolver function is set and templates are resolved via the file system. After
-setting a resolver function, the default behavior can be restored by calling `setresolver` with a
-`nil` argument.
+By default, no custom resolver function is set and templates are resolved via the file system.
+After setting a custom resolver function, the default behavior can be restored by calling
+`setresolver` with a `nil` argument.
 
 
 ### `template.clear ()`

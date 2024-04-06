@@ -27,7 +27,7 @@ Code:
 ```lua
 local template = require("template")
 
--- Prepare substitutions
+-- Prepare environment
 local env = setmetatable({
 	name = "Peter",
 	hour = 8,
@@ -85,6 +85,8 @@ Please see the [documentation](doc/) folder.
 ## Limitations
 
 Lua Template supports Lua 5.3 and Lua 5.4.
+
+Lua Template does not support the closing value in the generic for loop.
 
 Lua Template has been built and tested on Ubuntu Linux (64-bit).
 
