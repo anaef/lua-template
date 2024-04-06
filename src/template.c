@@ -179,6 +179,9 @@ static void template_unescape_xml (char *str) {
 			if (r[1] == 'q' && r[2] == 'u' && r[3] == 'o' && r[4] == 't' && r[5] == ';') {
 				*w++ = '"';
 				r += 6;
+			} else if (r[1] == 'a' && r[2] == 'p' && r[3] == 'o' && r[4] == 's' && r[5] == ';') {
+				*w++ = '\'';
+				r += 6;
 			} else if (r[1] == 'l' && r[2] == 't' && r[3] == ';') {
 				*w++ = '<';
 				r += 4;
@@ -1104,8 +1107,12 @@ static void template_render_template (lua_State *L, FILE *f, const char *filenam
 				result = 0;
 				for (c = str; *c != '\0'; c++) {
 					switch (*c) {
-					case '&':
-						result = fputs("&amp;", f);
+					case '"':
+						result = fputs("&quot;", f);
+						break;
+
+					case '\'':
+						result = fputs("&apos;", f);
 						break;
 
 					case '<':
@@ -1114,6 +1121,10 @@ static void template_render_template (lua_State *L, FILE *f, const char *filenam
 
 					case '>':
 						result = fputs("&gt;", f);
+						break;
+
+					case '&':
+						result = fputs("&amp;", f);
 						break;
 
 					default:
