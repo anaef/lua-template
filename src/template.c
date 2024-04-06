@@ -538,7 +538,8 @@ static void template_parse_element (parser_t *p) {
 	table_clear(p->attrs);
 	while (*p->pos != '>' && *p->pos != '/' && *p->pos != '\0') {
 		key = p->pos;
-		while (!isspace(*p->pos) && *p->pos != '=' && *p->pos != '\0') {
+		while (!isspace(*p->pos) && *p->pos != '=' && *p->pos != '>' && *p->pos != '/'
+				&& *p->pos != '\0') {
 			p->pos++;
 		}
 		if (p->pos == key) {
@@ -589,48 +590,42 @@ static void template_parse_element (parser_t *p) {
 	case 2:
 		if (strncmp(element, "if", 2) == 0) {
 			template_parse_if(p);
-		} else {
-			template_error(p, "bad element");
+			return;
 		}
 		break;
 
 	case 3:
 		if (strncmp(element, "for", 3) == 0) {
 			template_parse_for(p);
+			return;
 		} else if (strncmp(element, "set", 3) == 0) {
 			template_parse_set(p);
-		} else {
-			template_error(p, "bad element");
+			return;
 		}
 		break;
 
 	case 4:
 		if (strncmp(element, "else", 4) == 0) {
 			template_parse_else(p);
-		} else {
-			template_error(p, "bad element");
+			return;
 		}
 		break;
 
 	case 6:
 		if (strncmp(element, "elseif", 6) == 0) {
 			template_parse_elseif(p);
-		} else {
-			template_error(p, "bad element");
+			return;
 		}
 		break;
 
 	case 7:
 		if (strncmp(element, "include", 7) == 0) {
 			template_parse_include(p);
-		} else {
-			template_error(p, "bad element");
+			return;
 		}
 		break;
-
-	default:
-		template_error(p, "bad element");
 	}
+	template_error(p, "bad element");
 }	
 
 static void template_parse_sub (parser_t *p) {
