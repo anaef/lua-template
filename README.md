@@ -61,6 +61,15 @@ Output:
 
 ## Build, Test, and Install
 
+### Building and Installing with LuaRocks
+
+To build and install with LuaRocks, run:
+
+```
+luarocks install lua-template
+```
+
+
 ### Building, Testing and Installing with Make
 
 Lua Template comes with a simple Makefile. Please adapt the Makefile to your environment, and then
