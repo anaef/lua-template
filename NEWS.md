@@ -4,6 +4,7 @@
 ## Release 1.1.0
 
 - Add Lua 5.5 to the tested versions.
+- Change the default Lua version in the Makefile to Lua 5.4.
 - Add security posture.
 - Fix URL escaping of non-ASCII bytes.
 - Fix environment restoration during re-entrant template rendering.

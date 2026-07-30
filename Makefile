@@ -1,6 +1,6 @@
-LUA_INCDIR=/usr/include/lua5.3
-LUA_BIN=/usr/bin/lua5.3
-LIBDIR=/usr/local/lib/lua/5.3
+LUA_INCDIR=/usr/include/lua5.4
+LUA_BIN=/usr/bin/lua5.4
+LIBDIR=/usr/local/lib/lua/5.4
 CFLAGS=-Wall -Wextra -Wpointer-arith -Werror -fPIC -O3 -D_REENTRANT -D_GNU_SOURCE
 LDFLAGS=-shared -fPIC
 
