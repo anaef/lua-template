@@ -6,6 +6,7 @@
 
 
 #include "template.h"
+#include <errno.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -1358,17 +1359,21 @@ static int template_setup (lua_State *L) {
 }
 
 static int template_fclose (lua_State *L) {
+	int           error;
 	int           result;
 	memstream_t  *memstream;
 
 	memstream = luaL_checkudata(L, 1, LUA_FILEHANDLE);
-	result = luaL_fileresult(L, fclose(memstream->stream.f) == 0, NULL);
+	result = fclose(memstream->stream.f);
+	error = errno;
 	free(memstream->str);
-	return result;
+	errno = error;
+	return luaL_fileresult(L, result == 0, NULL);
 }
 
 static int template_render (lua_State *L) {
 	int           have_stream;
+	int           result;
 	render_t      render;
 	luaL_Stream  *stream;
 	memstream_t  *memstream;
@@ -1419,12 +1424,20 @@ static int template_render (lua_State *L) {
 	if (have_stream) {
 		return 0;
 	} else {
-		if (fclose(memstream->stream.f) != 0) {
-			return luaL_error(L, "error closing memory stream");
+		if (fflush(memstream->stream.f) != 0) {
+			return luaL_error(L, "error flushing memory stream");
 		}
 		lua_pushlstring(L, memstream->str, memstream->len);
-		free(memstream->str);
 		memstream->stream.closef = NULL;
+		result = fclose(memstream->stream.f);
+		free(memstream->str);
+#if LUA_VERSION_NUM >= 504
+		if (result != 0) {
+			lua_warning(L, "error closing memory stream", 0);
+		}
+#else
+		(void)result;
+#endif
 		return 1;
 	}
 }
