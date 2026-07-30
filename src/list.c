@@ -6,6 +6,7 @@
 
 
 #include "list.h"
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -108,14 +109,13 @@ static int list_check_alloc (size_t size, size_t alloc) {
 }
 
 static size_t list_alloc (size_t alloc) {
+	size_t  shift;
+
 	/* find the next power of 2 */
 	alloc--;
-	alloc |= alloc >> 1;
-	alloc |= alloc >> 2;
-	alloc |= alloc >> 4;
-	alloc |= alloc >> 8;
-	alloc |= alloc >> 16;
-	alloc |= alloc >> 32;
+	for (shift = 1; shift < sizeof(alloc) * CHAR_BIT; shift <<= 1) {
+		alloc |= alloc >> shift;
+	}
 	alloc++;
 	return alloc;
 }	

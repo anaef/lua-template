@@ -8,6 +8,7 @@
 - Fix environment restoration during re-entrant template rendering.
 - Fix handling of closed output streams.
 - Harden default template resolution against invalid or unrepresentable file sizes.
+- Harden list capacity rounding.
 
 
 ## Release 1.0.0 (2024-04-06)
