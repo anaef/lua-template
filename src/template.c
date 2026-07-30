@@ -1373,6 +1373,9 @@ static int template_render (lua_State *L) {
 	have_stream = lua_gettop(L) >= 3;
 	if (have_stream) {
 		stream = luaL_checkudata(L, 3, LUA_FILEHANDLE);
+		if (!stream->closef) {
+			luaL_error(L, "file closed");
+		}
 		lua_settop(L, 3);
 	} else {
 		memstream = lua_newuserdata(L, sizeof(memstream_t));
