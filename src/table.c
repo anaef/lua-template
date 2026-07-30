@@ -1,7 +1,7 @@
 /*
  * Table
  *
- * Copyright (C) 2023-2024 Andre Naef
+ * Copyright (C) 2023-2026 Andre Naef
  */
 
 
@@ -96,7 +96,7 @@ int table_set_dup (table_t *t, int dup) {
 	if (t->count) {
 		return -1;
 	}
-	t->dup = dup;
+	t->dup = !!dup;
 	return 0;
 }
 
@@ -104,7 +104,7 @@ int table_set_free (table_t *t, int free) {
 	if (t->count) {
 		return -1;
 	}
-	t->free = free;
+	t->free = !!free;
 	return 0;
 }
 
@@ -112,7 +112,7 @@ int table_set_ci (table_t *t, int ci) {
 	if (t->count) {
 		return -1;
 	}
-	t->ci = ci;
+	t->ci = !!ci;
 	return 0;
 }
 
@@ -129,8 +129,9 @@ void *table_get (table_t *t, const char *key) {
 }
 
 int table_set (table_t *t, const char *key, void *value) {
-	uint64_t        hash;
-	table_entry_t  *entry;
+	uint64_t         hash;
+	const char      *entry_key;
+	table_entry_t   *entry;
 
 	hash = table_hash(t, key);
 	entry = table_find(t, key, hash);
@@ -150,15 +151,16 @@ int table_set (table_t *t, const char *key, void *value) {
 			}
 
 			/* new entry */
-			entry = table_insert(t, hash);
 			if (t->dup) {
-				entry->key = strdup(key);
-				if (!entry->key) {
+				entry_key = strdup(key);
+				if (!entry_key) {
 					return -1;
 				}
 			} else {
-				entry->key = key;
+				entry_key = key;
 			}
+			entry = table_insert(t, hash);
+			entry->key = entry_key;
 			entry->value = value;
 			entry->hash = hash;
 			entry->state = TES_SET;
@@ -182,7 +184,7 @@ static uint64_t table_hash (table_t *t, const char *key) {
 	p = key + strlen(key);
 	if (t->ci) {
 		while (p > key) {
-			hash ^= tolower(*--p);
+			hash ^= tolower((unsigned char)*--p);
 			hash *= 1099511628211;
 		}
 	} else {
@@ -257,7 +259,7 @@ static table_entry_t *table_find (table_t *t, const char *key, uint64_t hash) {
 	q = hash % (t->alloc - 2) + 1;
 	entry = &t->entries[h];
 	while (entry->state != TES_UNUSED) {
-		if (entry->hash == hash && (t->ci ? strcasecmp(entry->key, key)
+		if (entry->state == TES_SET && entry->hash == hash && (t->ci ? strcasecmp(entry->key, key)
 				: strcmp(entry->key, key)) == 0) {
 			return entry;
 		}

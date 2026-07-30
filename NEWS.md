@@ -11,6 +11,7 @@
 - Fix substitution of strings containing embedded NUL bytes.
 - Harden default template resolution against invalid or unrepresentable file sizes.
 - Harden list capacity rounding.
+- Harden table options, hashing, deleted-entry probing, and duplicate-key insertion.
 
 
 ## Release 1.0.0 (2024-04-06)
