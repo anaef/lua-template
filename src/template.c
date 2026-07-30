@@ -7,6 +7,7 @@
 
 #include "template.h"
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
@@ -759,25 +760,30 @@ static void template_parse_raw (parser_t *p) {
 
 static void template_resolve (parser_t *p) {
 	FILE        *f;
+	size_t       size;
 	struct stat  statbuf;
 
 	if (stat(p->filename, &statbuf) != 0) {
 		luaL_error(p->L, "%s: template not found", p->filename);
 	}
-	if (!(p->str = malloc(statbuf.st_size + 1))) {
+	if (statbuf.st_size < 0 || (uintmax_t)statbuf.st_size > SIZE_MAX - 1) {
+		luaL_error(p->L, "%s: bad template size", p->filename);
+	}
+	size = (size_t)statbuf.st_size;
+	if (!(p->str = malloc(size + 1))) {
 		luaL_error(p->L, "%s: out of memory", p->filename);
 	}
 	if (!(f = fopen(p->filename, "r"))) {
 		luaL_error(p->L, "%s: error opening template", p->filename);
 	}
-	if (fread(p->str, 1, statbuf.st_size, f) != (size_t)statbuf.st_size) {
+	if (fread(p->str, 1, size, f) != size) {
 		fclose(f);
 		luaL_error(p->L, "%s: error reading template", p->filename);
 	}
 	if (fclose(f) != 0) {
 		luaL_error(p->L, "%s: error closing template", p->filename);
 	}
-	p->str[statbuf.st_size] = '\0';
+	p->str[size] = '\0';
 }
 
 static int template_parse (lua_State *L) {
