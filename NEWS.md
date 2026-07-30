@@ -1,8 +1,9 @@
 # Lua Template Release Notes
 
 
-## Release 1.0.1
+## Release 1.1.0
 
+- Add Lua 5.5 to the tested versions.
 - Add security posture.
 - Fix URL escaping of non-ASCII bytes.
 - Fix environment restoration during re-entrant template rendering.

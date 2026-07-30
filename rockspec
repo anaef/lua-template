@@ -12,7 +12,7 @@ description = {
 	labels = { "template" },
 }
 dependencies = {
-	"lua >= 5.3"
+	"lua >= 5.3, < 5.6"
 }
 source = {
 	url = "git+https://github.com/anaef/lua-template.git",

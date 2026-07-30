@@ -93,7 +93,7 @@ Please see the [documentation](doc/) folder.
 
 ## Limitations
 
-Lua Template supports Lua 5.3 and Lua 5.4.
+Lua Template supports Lua 5.3, Lua 5.4, and Lua 5.5.
 
 Lua Template does not support the closing value in the generic for loop.
 
