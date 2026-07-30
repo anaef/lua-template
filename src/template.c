@@ -1,7 +1,7 @@
 /*
  * Template
  *
- * Copyright (C) 2011-2024 Andre Naef
+ * Copyright (C) 2011-2026 Andre Naef
  */
 
 
@@ -1003,11 +1003,12 @@ static void template_setenv (lua_State *L, template_t *t) {
 }
 
 static void template_render_template (lua_State *L, FILE *f, const char *filename, int depth) {
-	int          result;
-	node_t      *node;
-	size_t       i, nret;
-	template_t  *template;
-	const char  *str, *c;
+	int            result;
+	node_t        *node;
+	size_t         i, nret;
+	template_t    *template;
+	const char    *str, *c;
+	unsigned char  byte;
 
 	/* check depth */
 	if (depth > TEMPLATE_MAX_DEPTH) {
@@ -1143,12 +1144,15 @@ static void template_render_template (lua_State *L, FILE *f, const char *filenam
 			case TEMPLATE_FESCURL:
 				result = 0;
 				for (c = str; *c != '\0'; c++) {
-					if (isalnum(*c) || *c == '-' || *c == '.' || *c == '_' || *c == '~') {
-						result = fputc(*c, f);
+					byte = (unsigned char)*c;
+					if ((byte >= 'A' && byte <= 'Z') || (byte >= 'a' && byte <= 'z')
+							|| (byte >= '0' && byte <= '9') || byte == '-' || byte == '.'
+							|| byte == '_' || byte == '~') {
+						result = fputc(byte, f);
 					} else {
 						result = (fputc('%', f) != EOF
-								&& fputc(template_hex_digits[*c / 16], f) != EOF
-								&& fputc(template_hex_digits[*c % 16], f) != EOF) ? 3 : EOF;
+								&& fputc(template_hex_digits[byte >> 4], f) != EOF
+								&& fputc(template_hex_digits[byte & 0x0f], f) != EOF) ? 3 : EOF;
 					}
 					if (result == EOF) {
 						break;
