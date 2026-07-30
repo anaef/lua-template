@@ -21,6 +21,7 @@ local TEMPLATES = {
 	test_for = "<l:for in=\"ipairs(values)\" names=\"_, value\">${value}</l:for>",
 	test_set = "<l:set names=\"x\" expressions=\"value\"/>${x}",
 	test_include = "include: <l:include filename=\"'test_if'\"/>",
+	test_reentrant = "${nested()}|${value}",
 	test_sub_nil = "${undefined}",
 	test_sub_nilsup = "$[n]{undefined}",
 	test_sub_xml = "$[x]{xml}",
@@ -49,6 +50,21 @@ test("test_if_elseif_else", { value = 3 }, "3")
 test("test_for", { values = { 3, 2, 1 } }, "321")
 test("test_set", { value = 42 }, "42")
 test("test_include", { cond = true }, "include: True")
+test("test_reentrant", {
+	nested = function ()
+		return template.render("test_reentrant",
+				{ nested = function () return "nested" end, value = "inner" })
+	end,
+	value = "outer",
+}, "nested|inner|outer")
+test("test_reentrant", {
+	nested = function ()
+		assert(not pcall(template.render, "test_reentrant",
+				{ nested = function () error("nested error") end, value = "inner" }))
+		return "caught"
+	end,
+	value = "outer",
+}, "caught|outer")
 
 -- Test substitution
 test("test_sub_nil", { }, "(nil)")

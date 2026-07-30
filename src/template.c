@@ -33,6 +33,7 @@ typedef struct template_s template_t;
 typedef struct parser_s parser_t;
 typedef struct node_s node_t;
 typedef struct block_s block_t;
+typedef struct render_s render_t;
 typedef struct memstream_s memstream_t;
 
 struct template_s {
@@ -114,6 +115,11 @@ struct block_s {
 	};
 };
 
+struct render_s {
+	FILE  *f;      /* output stream */
+	int    depth;  /* template inclusion depth */
+};
+
 struct memstream_s {
 	luaL_Stream  stream;  /* Lua stream */
 	char        *str;     /* memory buffer */
@@ -149,8 +155,12 @@ static int template_gc(lua_State *L);
 /* rendering */
 static void template_eval(lua_State *L, int index, int nret);
 static void template_eval_str(lua_State *L, int index);
-static void template_setenv(lua_State *L, template_t *t);
-static void template_render_template(lua_State *L, FILE *f, const char *filename, int depth);
+static void template_pushenv(lua_State *L, template_t *t);
+static void template_setenv(lua_State *L, template_t *t, int index);
+static int template_traceback(lua_State *L);
+static int template_execute(lua_State *L);
+static void template_call(lua_State *L, const char *filename);
+static int template_setup(lua_State *L);
 static int template_fclose(lua_State *L);
 static int template_render(lua_State *L);
 
@@ -966,7 +976,7 @@ static void template_eval_str (lua_State *L, int index) {
 	}
 }
 
-static void template_setenv (lua_State *L, template_t *t) {
+static void template_pushenv (lua_State *L, template_t *t) {
 	node_t  *node;
 	size_t   i;
 
@@ -996,40 +1006,78 @@ static void template_setenv (lua_State *L, template_t *t) {
 		default:
 			continue;
 		}
-		lua_pushvalue(L, 2);
+		if (lua_getupvalue(L, -1, 1)) {
+			lua_replace(L, -2);
+			return;
+		}
+		lua_pop(L, 1);
+	}
+	lua_pushnil(L);
+}
+
+static void template_setenv (lua_State *L, template_t *t, int index) {
+	node_t  *node;
+	size_t   i;
+
+	index = lua_absindex(L, index);
+	for (i = 0; i < t->nodes->count; i++) {
+		node = list_get(t->nodes, i);
+		switch (node->type) {
+		case NT_IF:
+			lua_rawgeti(L, LUA_REGISTRYINDEX, node->if_ref);
+			break;
+
+		case NT_FOR_INIT:
+			lua_rawgeti(L, LUA_REGISTRYINDEX, node->for_init_ref);
+			break;
+
+		case NT_SET:
+			lua_rawgeti(L, LUA_REGISTRYINDEX, node->set_ref);
+			break;
+
+		case NT_INCLUDE:
+			lua_rawgeti(L, LUA_REGISTRYINDEX, node->include_ref);
+			break;
+
+		case NT_SUB:
+			lua_rawgeti(L, LUA_REGISTRYINDEX, node->sub_ref);
+			break;
+
+		default:
+			continue;
+		}
+		lua_pushvalue(L, index);
 		lua_setupvalue(L, -2, 1);
 		lua_pop(L, 1);
 	}
 }
 
-static void template_render_template (lua_State *L, FILE *f, const char *filename, int depth) {
+static int template_traceback (lua_State *L) {
+	const char  *msg;
+
+	msg = lua_tostring(L, 1);
+	if (msg) {
+		luaL_traceback(L, L, msg, 1);
+	} else {
+		lua_pushvalue(L, 1);
+	}
+	return 1;
+}
+
+static int template_execute (lua_State *L) {
 	int            result;
+	FILE          *f;
 	node_t        *node;
 	size_t         i, nret;
+	render_t      *render;
 	template_t    *template;
 	const char    *str, *c;
 	unsigned char  byte;
 
-	/* check depth */
-	if (depth > TEMPLATE_MAX_DEPTH) {
-		luaL_error(L, "template depth exceeds %d", TEMPLATE_MAX_DEPTH);
-	}
-
-	/* get template, parsing it as needed */
-	if (lua_getfield(L, 4, filename) != LUA_TUSERDATA
-			|| !(template = luaL_testudata(L, -1, TEMPLATE_TEMPLATE))) {
-		lua_pop(L, 1);
-		lua_pushcfunction(L, template_parse);
-		lua_pushstring(L, filename);
-		lua_call(L, 1, 1);
-		lua_pushvalue(L, -1);
-		lua_setfield(L, 4, filename);
-		template = lua_touserdata(L, -1);
-	}
-	if (template->env != lua_topointer(L, 2)) {
-		template_setenv(L, template);
-		template->env = lua_topointer(L, 2);
-	}
+	/* get render context and template */
+	render = lua_touserdata(L, 4);
+	f = render->f;
+	template = lua_touserdata(L, 5);
 
 	/* render template */
 	i = 0;
@@ -1073,7 +1121,7 @@ static void template_render_template (lua_State *L, FILE *f, const char *filenam
 				lua_replace(L, -1 - nret - 1);
 				while (nret > 0) {
 					nret--;
-					lua_setfield(L, 2, *(const char **)list_get(node->for_next_names, nret));
+					lua_setfield(L, 3, *(const char **)list_get(node->for_next_names, nret));
 				}
 				i++;
 			}
@@ -1084,14 +1132,14 @@ static void template_render_template (lua_State *L, FILE *f, const char *filenam
 			template_eval(L, node->set_ref, nret);
 			while (nret > 0) {
 				nret--;
-				lua_setfield(L, 2, *(const char **)list_get(node->set_names, nret));
+				lua_setfield(L, 3, *(const char **)list_get(node->set_names, nret));
 			}
 			i++;
 			break;
  
 		case NT_INCLUDE:
 			template_eval_str(L, node->include_ref);
-			template_render_template(L, f, lua_tostring(L, -1), depth + 1);
+			template_call(L, lua_tostring(L, -1));
 			lua_pop(L, 1);
 			i++;
 			break;			
@@ -1228,8 +1276,79 @@ static void template_render_template (lua_State *L, FILE *f, const char *filenam
 		}
 	}
 
-	/* pop template */
+	return 0;
+}
+
+static void template_call (lua_State *L, const char *filename) {
+	int          env_index, save, status;
+	const void  *env, *old_env;
+	render_t    *render;
+	template_t  *template;
+
+	/* check depth */
+	render = lua_touserdata(L, 4);
+	render->depth++;
+	if (render->depth > TEMPLATE_MAX_DEPTH) {
+		render->depth--;
+		luaL_error(L, "template depth exceeds %d", TEMPLATE_MAX_DEPTH);
+	}
+
+	/* get template, parsing it as needed */
+	if (lua_getfield(L, 2, filename) != LUA_TUSERDATA
+			|| !(template = luaL_testudata(L, -1, TEMPLATE_TEMPLATE))) {
+		lua_pop(L, 1);
+		lua_pushcfunction(L, template_parse);
+		lua_pushstring(L, filename);
+		lua_call(L, 1, 1);
+		lua_pushvalue(L, -1);
+		lua_setfield(L, 2, filename);
+		template = lua_touserdata(L, -1);
+	}
 	lua_pop(L, 1);
+
+	/* set environment */
+	env = lua_topointer(L, 3);
+	old_env = template->env;
+	save = old_env != env;
+	env_index = 0;
+	if (save) {
+		template_pushenv(L, template);
+		env_index = lua_gettop(L);
+		template_setenv(L, template, 3);
+		template->env = env;
+	}
+
+	/* execute template */
+	lua_pushcfunction(L, template_execute);
+	lua_pushvalue(L, 1);  /* traceback */
+	lua_pushvalue(L, 2);  /* registry */
+	lua_pushvalue(L, 3);  /* environment */
+	lua_pushvalue(L, 4);  /* render */
+	lua_pushlightuserdata(L, template);  /* template */
+	status = lua_pcall(L, 5, 0, 1);
+
+	/* restore environment */
+	if (save) {
+		template_setenv(L, template, env_index);
+		template->env = old_env;
+	}
+	render->depth--;
+	if (status != LUA_OK) {
+		lua_error(L);
+	}
+	if (save) {
+		lua_pop(L, 1);
+	}
+}
+
+static int template_setup (lua_State *L) {
+	const char  *filename;
+
+	/* get filename */
+	filename = lua_tostring(L, 5);
+	lua_settop(L, 4);
+	template_call(L, filename);
+	return 0;
 }
 
 static int template_fclose (lua_State *L) {
@@ -1244,12 +1363,12 @@ static int template_fclose (lua_State *L) {
 
 static int template_render (lua_State *L) {
 	int           have_stream;
-	const char   *filename;
+	render_t      render;
 	luaL_Stream  *stream;
 	memstream_t  *memstream;
 
 	/* check arguments */
-	filename = luaL_checkstring(L, 1);
+	luaL_checkstring(L, 1);
 	luaL_checktype(L, 2, LUA_TTABLE);
 	have_stream = lua_gettop(L) >= 3;
 	if (have_stream) {
@@ -1277,7 +1396,15 @@ static int template_render (lua_State *L) {
 	}
 
 	/* render */
-	template_render_template(L, stream->f, filename, 1);
+	render.f = stream->f;
+	render.depth = 0;
+	lua_pushcfunction(L, template_setup);
+	lua_pushcfunction(L, template_traceback);  /* traceback */
+	lua_pushvalue(L, 4);  /* registry */
+	lua_pushvalue(L, 2);  /* environment */
+	lua_pushlightuserdata(L, &render);  /* render */
+	lua_pushvalue(L, 1);  /* filename */
+	lua_call(L, 5, 0);
 
 	/* return result, if any */
 	if (have_stream) {
