@@ -8,6 +8,7 @@
 - Fix environment restoration during re-entrant template rendering.
 - Fix handling of closed output streams.
 - Fix memory-stream cleanup on error path.
+- Fix substitution of strings containing embedded NUL bytes.
 - Harden default template resolution against invalid or unrepresentable file sizes.
 - Harden list capacity rounding.
 

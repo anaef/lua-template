@@ -1075,10 +1075,10 @@ static int template_execute (lua_State *L) {
 	int            result;
 	FILE          *f;
 	node_t        *node;
-	size_t         i, nret;
+	size_t         i, len, nret;
 	render_t      *render;
 	template_t    *template;
-	const char    *str, *c;
+	const char    *str, *c, *end;
 	unsigned char  byte;
 
 	/* get render context and template */
@@ -1154,18 +1154,20 @@ static int template_execute (lua_State *L) {
 		case NT_SUB:
 			template_eval(L, node->sub_ref, 1);
 			if (lua_isstring(L, -1)) {
-				str = lua_tostring(L, -1);
+				str = lua_tolstring(L, -1, &len);
 			} else if (lua_isnil(L, -1) && (node->sub_flags & TEMPLATE_FSUPNIL)) {
 				str = "";
+				len = 0;
 			} else {
 				lua_pushfstring(L, "(%s)", luaL_typename(L, -1));
 				lua_replace(L, -2);
-				str = lua_tostring(L, -1);
+				str = lua_tolstring(L, -1, &len);
 			}
+			end = str + len;
 			switch (node->sub_flags & TEMPLATE_FESC) {
 			case TEMPLATE_FESCXML:
 				result = 0;
-				for (c = str; *c != '\0'; c++) {
+				for (c = str; c < end; c++) {
 					switch (*c) {
 					case '"':
 						result = fputs("&quot;", f);
@@ -1198,7 +1200,7 @@ static int template_execute (lua_State *L) {
 
 			case TEMPLATE_FESCURL:
 				result = 0;
-				for (c = str; *c != '\0'; c++) {
+				for (c = str; c < end; c++) {
 					byte = (unsigned char)*c;
 					if ((byte >= 'A' && byte <= 'Z') || (byte >= 'a' && byte <= 'z')
 							|| (byte >= '0' && byte <= '9') || byte == '-' || byte == '.'
@@ -1217,7 +1219,7 @@ static int template_execute (lua_State *L) {
 
 			case TEMPLATE_FESCJS:
 				result = 0;
-				for (c = str; *c != '\0'; c++) {
+				for (c = str; c < end; c++) {
 					switch (*c) {
 					case '\b':
 						result = fputs("\\b", f);
@@ -1265,7 +1267,7 @@ static int template_execute (lua_State *L) {
 				break;
 
 			default:
-				result = fputs(str, f);
+				result = fwrite(str, 1, len, f) == len ? 0 : EOF;
 			}
 			if (result == EOF) {
 				luaL_error(L, "error writing template");
