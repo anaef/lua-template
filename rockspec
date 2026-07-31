@@ -1,6 +1,6 @@
 rockspec_format = "3.0"
 package = "lua-template"
-version = "1.0.0-1"
+version = "1.1.0-1"
 description = {
 	summary = "Efficient template engine for Lua",
 	detailed = [[
@@ -16,7 +16,7 @@ dependencies = {
 }
 source = {
 	url = "git+https://github.com/anaef/lua-template.git",
-	tag = "v1.0.0",
+	tag = "v1.1.0",
 }
 build = {
 	type = "builtin",

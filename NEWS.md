@@ -1,7 +1,7 @@
 # Lua Template Release Notes
 
 
-## Release 1.1.0
+## Release 1.1.0 (2026-07-31)
 
 - Add Lua 5.5 to the tested versions.
 - Change the default Lua version in the Makefile to Lua 5.4.
