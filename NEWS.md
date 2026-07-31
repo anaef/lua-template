@@ -1,6 +1,11 @@
 # Lua Template Release Notes
 
 
+## Release 1.1.1
+
+- Update security posture.
+
+
 ## Release 1.1.0 (2026-07-31)
 
 - Add Lua 5.5 to the tested versions.
